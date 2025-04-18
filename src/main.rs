@@ -100,9 +100,17 @@ impl App {
     fn handle(&mut self, update: TrackUpdate) -> Result<(), Box<dyn Error>> {
         match update {
             TrackUpdate::New(new_track) => {
-                info!("Playing {} by {}", new_track.title, new_track.artist);
-                self.track = new_track;
-                self.set_activity()?;
+                if new_track.paused {
+                    info!("Track is paused, removing activity status");
+                    self.clear_activity()?;
+                } else if new_track != self.track {
+                    info!("Playing {} by {}", new_track.title, new_track.artist);
+                    self.track = new_track;
+                    self.set_activity()?;
+                } else {
+                    info!("Track got unpaused, restarting activity");
+                    self.set_activity()?;
+                }
             }
             TrackUpdate::ImageUploaded(url) => {
                 info!("Done uploading the cover image");
@@ -111,11 +119,7 @@ impl App {
             }
             TrackUpdate::None => {
                 info!("No more tracks are playing");
-                if let Some(c) = self.client.as_mut() {
-                    c.clear_activity()?;
-                    c.close()?;
-                    self.client = None;
-                }
+                self.clear_activity()?;
             }
         }
         Ok(())
@@ -165,6 +169,16 @@ impl App {
             .buttons(buttons);
 
         c.set_activity(activity)?;
+
+        Ok(())
+    }
+
+    fn clear_activity(&mut self) -> Result<(), Box<dyn Error>> {
+        if let Some(c) = self.client.as_mut() {
+            c.clear_activity()?;
+            c.close()?;
+            self.client = None;
+        }
 
         Ok(())
     }
@@ -304,7 +318,7 @@ mod track_info {
         pub art_is_local: bool,
         pub start: i64,
         pub length: i64,
-        pub _paused: bool,
+        pub paused: bool,
     }
 
     impl<'de> Deserialize<'de> for TrackInfo {
@@ -360,11 +374,21 @@ mod track_info {
                     .get("length")
                     .and_then(|v| v.as_str().and_then(|s| s.parse::<i64>().ok()))
                     .unwrap_or_default(),
-                _paused: map
+                paused: map
                     .get("status")
                     .map(|v| !matches!(v.as_str(), Some("Playing")))
                     .unwrap_or(true),
             })
+        }
+    }
+
+    impl PartialEq for TrackInfo {
+        fn eq(&self, other: &Self) -> bool {
+            self.title == other.title
+                && self.artist == other.artist
+                && self.album == other.album
+                && self.art_is_local == other.art_is_local
+                && self.length == other.length
         }
     }
 }
