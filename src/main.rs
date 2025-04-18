@@ -10,6 +10,7 @@ use track_info::TrackInfo;
 use urlencoding::encode;
 
 const CLIENT_ID: &str = "1210361074247802940";
+const MAX_RETRIES: usize = 3;
 
 #[tokio::main]
 async fn main() {
@@ -23,8 +24,13 @@ async fn main() {
     let mut client = None;
 
     while let Some(update) = rx.recv().await {
-        if let Err(e) = handle(update, &mut track, &mut client) {
-            error!("Received an error while handling TrackUpdate: {e}");
+        for _ in 0..MAX_RETRIES {
+            if let Err(e) = handle(update.clone(), &mut track, &mut client) {
+                error!("Received an error while handling TrackUpdate: {e}");
+                client = None;
+            } else {
+                break;
+            }
         }
     }
 
@@ -99,11 +105,10 @@ fn set_activity(
 
     c.set_activity(activity)?;
 
-    *client = Some(c);
-
     Ok(())
 }
 
+#[derive(Clone)]
 enum TrackUpdate {
     New(TrackInfo),
     ImageUploaded(String),
@@ -215,7 +220,7 @@ mod track_info {
 
     use serde::Deserialize;
 
-    #[derive(Debug, Default)]
+    #[derive(Debug, Default, Clone)]
     pub(crate) struct TrackInfo {
         pub title: String,
         pub artist: String,
