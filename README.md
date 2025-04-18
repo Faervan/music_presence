@@ -2,6 +2,8 @@
 Show them what music you listen to, even when not using Spotify.<br>
 `music_presence` was made for [kew](https://github.com/ravachol/kew), but works with any players supporting [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/).
 
+It works by subscribing to `playerctl` for MPRIS events and uploading the cover art of the playing media to [tmpfiles.org](https://tmpfiles.org/) if it is stored locally, because Discords RPC requires image assets to be provided as web urls.
+
 ![image](https://github.com/user-attachments/assets/919ddf71-7254-4cf2-b78f-07d2166a0c91)
 
 ## Building from source
@@ -26,3 +28,31 @@ Applies if you followed the steps from [Building from source](#building-from-sou
 ```sh
 sudo rm /usr/local/bin/music_presence
 ```
+
+## Usage
+```
+$ ./target/release/music_presence -h
+
+Discord presence for ravachol/kew, or any MPRIS compatible music player.
+
+Note that activity buttons might not be visible to the user who sets the activity, but they are to everyone else.
+This is a Discord issue, see https://github.com/Mastermindzh/tidal-hifi/issues/429#issuecomment-2504798129.
+
+Usage: music_presence [OPTIONS]
+
+Options:
+  -v, --verbose                 
+  -r, --retries <RETRIES>       how often to retry if we get an ipc error [default: 3]
+  -p, --player <PLAYER>         name of the music player to follow (see `playerctl`) [default: kew]
+  -i, --app-id <APP_ID>         Discord application ID [default: 1210361074247802940]
+      --hide-repository-button  hide the button of the music_presence github repo
+  -h, --help                    Print help (see more with '--help')
+  -V, --version                 Print version
+```
+
+Note that when changing the player from `kew` to smth else (e.g. `spotify`), `music_presence` will still show up as "Listening to kew.m3u" because the Discord application with ID `1210361074247802940` has the name "kew.m3u".
+Head over to [Discords developer portal](https://discord.com/developers/applications) to create your own Discord application and pass its ID to `--app-id`.
+
+## Credits
+`music_presence` is powered by all the awesome crates listed in [Cargo.toml](Cargo.toml).
+Not listed there are `playerctl` and [tmpfiles.org](https://tmpfiles.org/), on which `music_presence` is built upon as well.
