@@ -11,13 +11,12 @@ use track_info::TrackInfo;
 use urlencoding::encode;
 
 const APPLICATION_ID: &str = "1210361074247802940";
+const DESCRIPTION: &str = "\n\nDiscord presence for ravachol/kew, or any MPRIS compatible music player.\n
+Note that activity buttons might not be visible to the user who sets the activity, but they are to everyone else.
+This is a Discord issue, see https://github.com/Mastermindzh/tidal-hifi/issues/429#issuecomment-2504798129.";
 
 #[derive(Parser)]
-#[command(version, author, about)]
-/// Discord presence for ravachol/kew, or any compatible music player.
-/// Note that activity buttons might not be visible to the user who sets the activity, but they are
-/// to everyone else. This is a Discord issue, see
-/// https://github.com/Mastermindzh/tidal-hifi/issues/429#issuecomment-2504798129.
+#[command(version, author, about = DESCRIPTION)]
 struct App {
     #[arg(short = 'v', long)]
     verbose: bool,
@@ -83,9 +82,11 @@ async fn main() {
             if let Err(e) = args.handle(update.clone()) {
                 error!("Received an error while handling TrackUpdate: {e}");
                 args.client = None;
-                if i > args.retries - 1 {
+                if i < args.retries - 1 {
                     info!("Retrying in 1 second.");
                     tokio::time::sleep(Duration::from_secs(1)).await;
+                } else {
+                    warn!("Max. retries reached! {update:?} will be ignored");
                 }
             } else {
                 break;
@@ -184,7 +185,7 @@ impl App {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum TrackUpdate {
     New(TrackInfo),
     ImageUploaded(String),
