@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+clap = { version = "4.5.36", features = ["derive"] }
 discord-rich-presence = "0.2.5"
 env_logger = "0.11.8"
 log = "0.4.27"
