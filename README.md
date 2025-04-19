@@ -3,6 +3,7 @@ Show them what music you listen to, even when not using Spotify.<br>
 `music_presence` was made for [kew](https://github.com/ravachol/kew), but works with any players supporting [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/).
 
 It works by subscribing to `playerctl` for MPRIS events and uploading the cover art of the playing media to [tmpfiles.org](https://tmpfiles.org/) if it is stored locally, because Discords RPC requires image assets to be provided as web urls.
+Unless this option is disabled, `music_presence` will also resize the cover to be smaller before uploading.
 
 ![image](https://github.com/user-attachments/assets/919ddf71-7254-4cf2-b78f-07d2166a0c91)
 
