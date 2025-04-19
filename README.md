@@ -30,6 +30,9 @@ sudo rm /usr/local/bin/music_presence
 ```
 
 ## Usage
+After installing, just add `music_presence` to your autostart.
+
+CLI options:
 ```
 $ ./target/release/music_presence -h
 
@@ -46,6 +49,8 @@ Options:
   -p, --player <PLAYER>         name of the music player to follow (see `playerctl`) [default: kew]
   -i, --app-id <APP_ID>         Discord application ID [default: 1210361074247802940]
       --hide-repository-button  hide the button of the music_presence github repo
+      --skip-resizing           do not resize local track covers before uploading them
+      --size <SIZE>             {width}x{height} to which track covers get resized before uploading [default: 150x150]
   -h, --help                    Print help (see more with '--help')
   -V, --version                 Print version
 ```

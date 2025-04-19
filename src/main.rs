@@ -6,6 +6,7 @@ use discord_rich_presence::{
     activity::{Activity, ActivityType, Assets, Button, Timestamps},
 };
 use log::{error, info, warn};
+use size_parser::SizeParser;
 use tokio::sync::mpsc;
 use track_info::TrackInfo;
 use urlencoding::encode;
@@ -18,11 +19,11 @@ This is a Discord issue, see https://github.com/Mastermindzh/tidal-hifi/issues/4
 #[derive(Parser)]
 #[command(version, author, about = DESCRIPTION)]
 struct App {
-    #[arg(short = 'v', long)]
+    #[arg(short, long)]
     verbose: bool,
 
     #[arg(
-        short = 'r',
+        short,
         long,
         default_value_t = 3,
         help = "how often to retry if we get an ipc error"
@@ -30,7 +31,7 @@ struct App {
     retries: usize,
 
     #[arg(
-        short = 'p',
+        short,
         long,
         default_value = "kew",
         help = "name of the music player to follow (see `playerctl`)"
@@ -48,6 +49,17 @@ struct App {
 
     #[arg(long, help = "hide the button of the music_presence github repo")]
     hide_repository_button: bool,
+
+    #[arg(long, help = "do not resize local track covers before uploading them")]
+    skip_resizing: bool,
+
+    #[arg(
+        long,
+        value_parser = SizeParser,
+        help = "{width}x{height} to which track covers get resized before uploading",
+        default_value = "150x150"
+    )]
+    size: (u32, u32),
 
     #[arg(skip)]
     track: TrackInfo,
@@ -71,8 +83,9 @@ async fn main() {
     let (sx, mut rx) = mpsc::unbounded_channel();
 
     let player = args.player.clone();
+    let resize = (!args.skip_resizing).then_some(args.size);
     tokio::spawn(async move {
-        if let Err(e) = media_listener::subscribe(sx, player).await {
+        if let Err(e) = media_listener::subscribe(sx, player, resize).await {
             error!("Failed to listen to playerctl due to critical error: {e}");
         }
     });
@@ -193,6 +206,38 @@ enum TrackUpdate {
     None,
 }
 
+mod size_parser {
+    use std::ffi::OsStr;
+
+    use clap::builder::TypedValueParser;
+
+    #[derive(Clone)]
+    pub struct SizeParser;
+
+    impl TypedValueParser for SizeParser {
+        type Value = (u32, u32);
+
+        fn parse_ref(
+            &self,
+            _cmd: &clap::Command,
+            _arg: Option<&clap::Arg>,
+            value: &OsStr,
+        ) -> Result<Self::Value, clap::Error> {
+            let value = value
+                .to_str()
+                .ok_or(clap::Error::new(clap::error::ErrorKind::InvalidUtf8))?;
+            if let Some((x, y)) = value.split_once('x') {
+                if let Ok(x) = x.parse() {
+                    if let Ok(y) = y.parse() {
+                        return Ok((x, y));
+                    }
+                }
+            }
+            Err(clap::Error::new(clap::error::ErrorKind::ValueValidation))
+        }
+    }
+}
+
 mod media_listener {
     use std::{error::Error, process::Stdio};
 
@@ -221,6 +266,7 @@ mod media_listener {
     pub async fn subscribe(
         sender: UnboundedSender<TrackUpdate>,
         player: String,
+        resize: Option<(u32, u32)>,
     ) -> Result<(), Box<dyn Error>> {
         let format = "'{ \
            \"title\": \"{{title}}\", \
@@ -264,8 +310,8 @@ mod media_listener {
                         last_track = url.clone();
                         let sender = sender.clone();
                         tokio::task::spawn(async move {
-                            if let Err(e) = upload_cover(sender, &url).await {
-                                error!("Failed to upload image cover: {e}");
+                            if let Err(e) = upload_cover(sender, &url, resize).await {
+                                error!("Failed to upload image cover: {e:?}");
                             }
                         });
                     }
@@ -279,8 +325,18 @@ mod media_listener {
 
     async fn upload_cover(
         sender: UnboundedSender<TrackUpdate>,
-        url: &str,
+        mut url: &str,
+        resize: Option<(u32, u32)>,
     ) -> Result<(), Box<dyn Error>> {
+        if let Some(size) = resize {
+            let image = image::ImageReader::open(url)?.decode()?;
+            if size.0 > image.width() && size.1 > image.height() {
+                url = "/tmp/music_presence_tmp_cover.jpg";
+                image
+                    .resize_to_fill(size.0, size.1, image::imageops::FilterType::Triangle)
+                    .save(url)?;
+            }
+        }
         let Ok(form) = reqwest::multipart::Form::new().file("file", url).await else {
             if !std::fs::exists(url).is_ok_and(|b| b) {
                 warn!("File {url} does not exist or is a broken symlink.");
