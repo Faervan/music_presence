@@ -1146,7 +1146,6 @@ dependencies = [
 name = "music_presence"
 version = "0.1.0"
 dependencies = [
- "bytemuck",
  "clap",
  "discord-rich-presence",
  "env_logger",
