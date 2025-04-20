@@ -115,6 +115,9 @@ impl App {
         match update {
             TrackUpdate::New(new_track) => {
                 if new_track.paused {
+                    if new_track != self.track {
+                        self.track = new_track;
+                    }
                     info!("Track is paused, removing activity status");
                     self.clear_activity()?;
                 } else if new_track != self.track {
@@ -129,7 +132,9 @@ impl App {
             TrackUpdate::ImageUploaded(url) => {
                 info!("Done uploading the cover image");
                 self.track.art_url = url;
-                self.set_activity()?;
+                if !self.track.paused {
+                    self.set_activity()?;
+                }
             }
             TrackUpdate::None => {
                 info!("No more tracks are playing");
