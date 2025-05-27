@@ -310,7 +310,7 @@ mod media_listener {
             };
             if let Ok(track) = serde_json::from_str::<TrackInfo>(&line) {
                 // If cover art is local, we need to upload first
-                if let Some(url) = track.art_is_local.then_some(track.art_url.clone()) {
+                if let Some(url) = track.art_is_local.then(|| track.art_url.clone()) {
                     if url != last_track {
                         last_track = url.clone();
                         let sender = sender.clone();
